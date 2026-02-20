@@ -8,5 +8,7 @@ public class TemperatureConverter {
     public static boolean isExtremeTemperature (double a){
         return (a < -40 || a > 50);
         }
+    public static double kelvinToCelsius (double a){
+        return(a - 273.15);
     }
 
