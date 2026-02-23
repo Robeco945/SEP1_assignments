@@ -1,6 +1,7 @@
+package convert;
 public class TemperatureConverter {
     public static double fahrenheitToCelsius (double a){
-        return((a - 32)*5);
+        return (a - 32) * 5 / 9;
     }
     public static double celsiusToFahrenheit (double a){
         return(a*9/5+32);
@@ -11,4 +12,5 @@ public class TemperatureConverter {
     public static double kelvinToCelsius (double a){
         return(a - 273.15);
     }
+}
 
