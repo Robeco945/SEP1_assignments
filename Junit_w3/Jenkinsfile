@@ -30,37 +30,24 @@ pipeline {
         }
 
         // ── 3. Run tests inside the container & produce JaCoCo report ─────────
-        //        The workspace target/ directory is bind-mounted so that Maven
-        //        writes jacoco.exec, surefire XML, and the HTML report directly
-        //        into the Jenkins workspace (needed for post-build publishers).
+        //        We cannot use a bind-mount here because Jenkins itself runs
+        //        inside Docker (named volume), so the path it knows is not on
+        //        the host. Instead: run the container, then docker cp the
+        //        target/ directory into the Jenkins workspace.
         stage('Run Tests & Generate JaCoCo Report') {
             steps {
                 sh """
-                    docker run --rm \
-                        -v "${WORKSPACE}/Junit_w3/target:/app/target" \
-                        ${IMAGE_NAME}:${IMAGE_TAG}
+                    docker run --name tc-${IMAGE_TAG} ${IMAGE_NAME}:${IMAGE_TAG}
+                    docker cp tc-${IMAGE_TAG}:/app/target ${WORKSPACE}/Junit_w3/
+                    docker rm tc-${IMAGE_TAG}
                 """
             }
 
             post {
                 always {
-                    // Publish JaCoCo coverage (requires the Jenkins JaCoCo plugin)
-                    jacoco(
-                        execPattern:      'Junit_w3/target/jacoco.exec',
-                        classPattern:     'Junit_w3/target/classes',
-                        sourcePattern:    'Junit_w3/src/main/java',
-                        exclusionPattern: 'Junit_w3/src/test*'
-                    )
-
-                    // Archive the generated HTML report (requires HTML Publisher plugin)
-                    publishHTML(target: [
-                        allowMissing:          false,
-                        alwaysLinkToLastBuild: true,
-                        keepAll:               true,
-                        reportDir:             'Junit_w3/target/site/jacoco',
-                        reportFiles:           'index.html',
-                        reportName:            'JaCoCo Coverage Report'
-                    ])
+                    // Archive JaCoCo exec file and HTML report as build artifacts
+                    archiveArtifacts artifacts: 'Junit_w3/target/jacoco.exec, Junit_w3/target/site/jacoco/**',
+                                     allowEmptyArchive: true
 
                     // Archive surefire XML so Jenkins shows test results
                     junit 'Junit_w3/target/surefire-reports/TEST-*.xml'
