@@ -1,0 +1,77 @@
+pipeline {
+    agent any
+
+    environment {
+        IMAGE_NAME            = 'roberto/sum-product_fx'
+        IMAGE_TAG             = "${env.BUILD_NUMBER}"
+        DOCKERHUB_CREDENTIALS = 'dockerhub-credentials'
+    }
+
+    stages {
+
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                sh """
+                    docker build \
+                        -t ${IMAGE_NAME}:${IMAGE_TAG} \
+                        -t ${IMAGE_NAME}:latest \
+                        w7/week7_calculator_fx_db
+                """
+            }
+        }
+
+        stage('Push to Docker Hub') {
+            when {
+                anyOf {
+                    branch 'main'
+                    branch 'master'
+                }
+            }
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: "${DOCKERHUB_CREDENTIALS}",
+                    usernameVariable: 'DOCKER_USER',
+                    passwordVariable: 'DOCKER_PASS'
+                )]) {
+                    sh """
+                        echo "\${DOCKER_PASS}" | docker login -u "\${DOCKER_USER}" --password-stdin
+                        docker tag ${IMAGE_NAME}:${IMAGE_TAG} "\${DOCKER_USER}/sum-product_fx:${IMAGE_TAG}"
+                        docker tag ${IMAGE_NAME}:${IMAGE_TAG} "\${DOCKER_USER}/sum-product_fx:latest"
+                        docker push "\${DOCKER_USER}/sum-product_fx:${IMAGE_TAG}"
+                        docker push "\${DOCKER_USER}/sum-product_fx:latest"
+                        docker logout
+                    """
+                }
+            }
+        }
+
+        stage('Deploy with Docker Compose') {
+            steps {
+                dir('w7/week7_calculator_fx_db') {
+                    sh """
+                        docker compose down || true
+                        docker compose up -d db
+                        echo "Waiting for MariaDB to be ready..."
+                        sleep 15
+                        docker compose up app
+                    """
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'Pipeline completed successfully!'
+        }
+        failure {
+            echo 'Pipeline failed!'
+        }
+    }
+}
