@@ -24,7 +24,7 @@ pipeline {
                     docker build \
                         -t ${IMAGE_NAME}:${IMAGE_TAG} \
                         -t ${IMAGE_NAME}:latest \
-                        .
+                        Junit_w3
                 """
             }
         }
@@ -37,7 +37,7 @@ pipeline {
             steps {
                 sh """
                     docker run --rm \
-                        -v "${WORKSPACE}/target:/app/target" \
+                        -v "${WORKSPACE}/Junit_w3/target:/app/target" \
                         ${IMAGE_NAME}:${IMAGE_TAG}
                 """
             }
@@ -46,10 +46,10 @@ pipeline {
                 always {
                     // Publish JaCoCo coverage (requires the Jenkins JaCoCo plugin)
                     jacoco(
-                        execPattern:      'target/jacoco.exec',
-                        classPattern:     'target/classes',
-                        sourcePattern:    'src/main/java',
-                        exclusionPattern: 'src/test*'
+                        execPattern:      'Junit_w3/target/jacoco.exec',
+                        classPattern:     'Junit_w3/target/classes',
+                        sourcePattern:    'Junit_w3/src/main/java',
+                        exclusionPattern: 'Junit_w3/src/test*'
                     )
 
                     // Archive the generated HTML report (requires HTML Publisher plugin)
@@ -57,13 +57,13 @@ pipeline {
                         allowMissing:          false,
                         alwaysLinkToLastBuild: true,
                         keepAll:               true,
-                        reportDir:             'target/site/jacoco',
+                        reportDir:             'Junit_w3/target/site/jacoco',
                         reportFiles:           'index.html',
                         reportName:            'JaCoCo Coverage Report'
                     ])
 
                     // Archive surefire XML so Jenkins shows test results
-                    junit 'target/surefire-reports/TEST-*.xml'
+                    junit 'Junit_w3/target/surefire-reports/TEST-*.xml'
                 }
             }
         }
