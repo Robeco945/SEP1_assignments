@@ -4,20 +4,17 @@ pipeline {
     environment {
         IMAGE_NAME            = 'temperature-converter'
         IMAGE_TAG             = "${env.BUILD_NUMBER}"
-        // ── Docker Hub ── set to your Docker Hub username/repo ──────────────
-        DOCKERHUB_CREDENTIALS = 'dockerhub-credentials'   // Jenkins credential ID
+        DOCKERHUB_CREDENTIALS = 'dockerhub-credentials'   
     }
 
     stages {
 
-        // ── 1. Checkout ───────────────────────────────────────────────────────
         stage('Checkout') {
             steps {
                 checkout scm
             }
         }
 
-        // ── 2. Build the Docker image ─────────────────────────────────────────
         stage('Build Docker Image') {
             steps {
                 sh """
@@ -29,11 +26,6 @@ pipeline {
             }
         }
 
-        // ── 3. Run tests inside the container & produce JaCoCo report ─────────
-        //        We cannot use a bind-mount here because Jenkins itself runs
-        //        inside Docker (named volume), so the path it knows is not on
-        //        the host. Instead: run the container, then docker cp the
-        //        target/ directory into the Jenkins workspace.
         stage('Run Tests & Generate JaCoCo Report') {
             steps {
                 sh """
@@ -43,22 +35,31 @@ pipeline {
                 """
             }
 
+            
             post {
                 always {
-                    // Archive JaCoCo exec file and HTML report as build artifacts
-                    archiveArtifacts artifacts: 'Junit_w3/target/jacoco.exec, Junit_w3/target/site/jacoco/**',
-                                     allowEmptyArchive: true
+                    jacoco(
+                        execPattern: 'Junit_w3/target/jacoco.exec',
+                        classPattern: 'Junit_w3/target/classes',
+                        sourcePattern: 'Junit_w3/src/main/java',
+                        inclusionPattern: '**/*.class'
+                    )
 
-                    // Archive surefire XML so Jenkins shows test results
-                    junit 'Junit_w3/target/surefire-reports/TEST-*.xml'
-                }
+                    publishHTML([
+                    allowMissing: false,
+                    alwaysLinkToLastBuild: true,
+                    keepAll: true,
+                    reportDir: 'Junit_w3/target/site/jacoco',
+                    reportFiles: 'index.html',
+                    reportName: 'JaCoCo HTML Report'
+                ])
+
+                junit 'Junit_w3/target/surefire-reports/TEST-*.xml'
             }
         }
+           
+        }
 
-        // ── 4. (Optional) Push image to Docker Hub ────────────────────────────
-        //        Runs only on main / master branches.
-        //        Requires a Jenkins "Username with password" credential whose ID
-        //        matches DOCKERHUB_CREDENTIALS above.
         stage('Push to Docker Hub') {
             when {
                 anyOf {
@@ -85,10 +86,8 @@ pipeline {
         }
     }
 
-    // ── Global post actions ───────────────────────────────────────────────────
     post {
         always {
-            // Remove local images to keep the Docker daemon clean
             sh "docker rmi ${IMAGE_NAME}:${IMAGE_TAG} ${IMAGE_NAME}:latest || true"
         }
         success {
