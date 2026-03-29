@@ -1,12 +1,22 @@
 
+package sep2.shoppingcart;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import org.junit.jupiter.api.Test;
 
 public class ShoppingCartTest {
 
     @Test
+    public void testItemCostCalculation() {
+        ShoppingCart cart = new ShoppingCart();
+
+        assertEquals(42.0, cart.calculateItemCost(10.5, 4), 0.0001,
+                "Item cost should be price multiplied by quantity");
+    }
+
+    @Test
     public void testSingleItem() {
-        Main.ShoppingCart cart = new Main.ShoppingCart();
+        ShoppingCart cart = new ShoppingCart();
         
         cart.addItem(10.50, 2);
         
@@ -15,7 +25,7 @@ public class ShoppingCartTest {
 
     @Test
     public void testMultipleItemsTotal() {
-        Main.ShoppingCart cart = new Main.ShoppingCart();
+        ShoppingCart cart = new ShoppingCart();
 
         cart.addItem(10.00, 2); // 20.00
         cart.addItem(5.50, 3);  // 16.50
@@ -25,7 +35,7 @@ public class ShoppingCartTest {
 
     @Test
     public void testZeroQuantityItemDoesNotChangeTotal() {
-        Main.ShoppingCart cart = new Main.ShoppingCart();
+        ShoppingCart cart = new ShoppingCart();
 
         cart.addItem(10.00, 1);
         cart.addItem(99.99, 0);

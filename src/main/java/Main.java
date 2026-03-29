@@ -1,19 +1,9 @@
 
 import java.util.Locale;
 import java.util.Scanner;
+import sep2.shoppingcart.ShoppingCart;
 
 public class Main {
-    public static class ShoppingCart {
-        private double total;
-
-        public void addItem(double price, int quantity) {
-            total += price * quantity;
-        }
-
-        public double getTotal() {
-            return total;
-        }
-    }
 
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);
