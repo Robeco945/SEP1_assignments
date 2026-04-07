@@ -4,13 +4,15 @@ import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.geometry.NodeOrientation;
-import javafx.scene.control.ComboBox;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
+import sep2.shoppingcart.service.CartItemData;
+import sep2.shoppingcart.service.CartService;
+import sep2.shoppingcart.service.DatabaseConnection;
 import sep2.shoppingcart.service.LocalizationService;
 
 import java.time.LocalDateTime;
@@ -26,7 +28,8 @@ public class ShoppingCartController {
     @FXML private VBox rootVBox;
     @FXML private Label lblTitle;
     @FXML private Label lblLanguage;
-    @FXML private ComboBox<String> cbLanguage;
+    @FXML private Button btnLanguage;
+    @FXML private VBox languageOptionsBox;
     @FXML private Label lblNumItems;
     @FXML private TextField tfNumItems;
     @FXML private Button btnPrepareItems;
@@ -41,7 +44,7 @@ public class ShoppingCartController {
     private final Map<String, Locale> localeByName = new LinkedHashMap<>();
     private final List<ItemRow> itemRows = new ArrayList<>();
     private final ShoppingCart shoppingCart = new ShoppingCart();
-    private boolean suppressLanguageEvent;
+    private final CartService cartService = new CartService();
 
     @FXML
     public void initialize() {
@@ -51,12 +54,18 @@ public class ShoppingCartController {
         localeByName.put("日本語", Locale.of("ja", "JP"));
         localeByName.put("العربية", Locale.of("ar", "AR"));
 
-        cbLanguage.getItems().addAll(localeByName.keySet());
-        cbLanguage.setValue("English");
-        cbLanguage.setOnAction(this::onLanguageChanged);
+        languageOptionsBox.setVisible(false);
+        languageOptionsBox.setManaged(false);
 
         setLanguage(currentLocale);
         tfNumItems.textProperty().addListener((obs, oldVal, newVal) -> lblResult.setText(""));
+    }
+
+    @FXML
+    public void onToggleLanguageOptions(ActionEvent e) {
+        boolean show = !languageOptionsBox.isVisible();
+        languageOptionsBox.setManaged(show);
+        languageOptionsBox.setVisible(show);
     }
 
     @FXML
@@ -82,6 +91,8 @@ public class ShoppingCartController {
         }
 
         double overallTotal = 0.0;
+        int totalItems = 0;
+        List<CartItemData> cartItems = new ArrayList<>();
         for (ItemRow row : itemRows) {
             try {
                 double price = Double.parseDouble(row.priceField.getText());
@@ -94,6 +105,8 @@ public class ShoppingCartController {
 
                 double itemTotal = shoppingCart.calculateItemCost(price, quantity);
                 overallTotal += itemTotal;
+                totalItems += quantity;
+                cartItems.add(new CartItemData(row.index, price, quantity, itemTotal));
                 row.totalValueLabel.setText(String.format(localeForDisplay(currentLocale), "%.2f", itemTotal));
             } catch (NumberFormatException ex) {
                 lblResult.setText(localizedStrings.getOrDefault("error_invalid_input", "Please enter valid positive numbers"));
@@ -101,19 +114,25 @@ public class ShoppingCartController {
             }
         }
 
-        lblResult.setText(String.format(
+        String totalMessage = String.format(
                 localizedStrings.getOrDefault("overall_total", "Overall total: %.2f"),
                 overallTotal
-        ));
-    }
+        );
 
-    @FXML
-    public void onLanguageChanged(ActionEvent e) {
-        if (suppressLanguageEvent) {
-            return;
+        try {
+            cartService.saveCart(
+                    totalItems,
+                    overallTotal,
+                    DatabaseConnection.getLanguageCode(currentLocale),
+                    cartItems
+            );
+            lblResult.setText(totalMessage);
+        } catch (RuntimeException ex) {
+            lblResult.setText(totalMessage + " | " + localizedStrings.getOrDefault(
+                    "error_save_cart",
+                    "Data was calculated but not saved"
+            ));
         }
-        Locale selected = localeByName.getOrDefault(cbLanguage.getValue(), Locale.of("en", "US"));
-        setLanguage(selected);
     }
 
     private void setLanguage(Locale locale) {
@@ -130,24 +149,14 @@ public class ShoppingCartController {
         lblItemsHeader.setText(localizedStrings.getOrDefault("label_item_inputs", "Item Inputs"));
         btnCalculateAll.setText(localizedStrings.getOrDefault("btn_calculate_all", "Calculate Totals"));
 
-        relocalizeLanguageDropdown();
+        relocalizeLanguageSelector();
         relocalizeItemRows();
 
         displayLocalTime(locale);
         applyTextDirection(locale);
     }
 
-    private void relocalizeLanguageDropdown() {
-        suppressLanguageEvent = true;
-        Locale selectedLocale = localeByName.getOrDefault(cbLanguage.getValue(), currentLocale);
-        cbLanguage.getItems().setAll(
-                localizedStrings.getOrDefault("lang_en", "English"),
-                localizedStrings.getOrDefault("lang_fi", "Suomi"),
-                localizedStrings.getOrDefault("lang_sv", "Svenska"),
-            localizedStrings.getOrDefault("lang_ja", "日本語"),
-            localizedStrings.getOrDefault("lang_ar", "العربية")
-        );
-
+    private void relocalizeLanguageSelector() {
         localeByName.clear();
         localeByName.put(localizedStrings.getOrDefault("lang_en", "English"), Locale.of("en", "US"));
         localeByName.put(localizedStrings.getOrDefault("lang_fi", "Suomi"), Locale.of("fi", "FI"));
@@ -155,13 +164,29 @@ public class ShoppingCartController {
         localeByName.put(localizedStrings.getOrDefault("lang_ja", "日本語"), Locale.of("ja", "JP"));
         localeByName.put(localizedStrings.getOrDefault("lang_ar", "العربية"), Locale.of("ar", "AR"));
 
+        languageOptionsBox.getChildren().clear();
         for (Map.Entry<String, Locale> entry : localeByName.entrySet()) {
-            if (entry.getValue().equals(selectedLocale)) {
-                cbLanguage.setValue(entry.getKey());
-                break;
+            Locale optionLocale = entry.getValue();
+            Button optionButton = new Button(entry.getKey());
+            optionButton.getStyleClass().add("language-option");
+            optionButton.setMaxWidth(Double.MAX_VALUE);
+            optionButton.setOnAction(event -> {
+                languageOptionsBox.setVisible(false);
+                languageOptionsBox.setManaged(false);
+                if (!optionLocale.equals(currentLocale)) {
+                    setLanguage(optionLocale);
+                }
+            });
+            languageOptionsBox.getChildren().add(optionButton);
+        }
+
+        for (Map.Entry<String, Locale> entry : localeByName.entrySet()) {
+            if (entry.getValue().equals(currentLocale)) {
+                btnLanguage.setText(entry.getKey());
+                return;
             }
         }
-        suppressLanguageEvent = false;
+        btnLanguage.setText(localizedStrings.getOrDefault("lang_en", "English"));
     }
 
     private void buildItemRows(int count) {

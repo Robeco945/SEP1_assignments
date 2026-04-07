@@ -22,6 +22,28 @@
     -fx-background-radius: 8;
 }
 
+.dropdown-button {
+    -fx-background-color: #f7f2e6;
+    -fx-border-color: #cdbfa3;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+    -fx-alignment: center-left;
+}
+
+.language-options {
+    -fx-padding: 2;
+    -fx-background-color: #fcf9f1;
+    -fx-border-color: #d7ccb3;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+}
+
+.language-option {
+    -fx-background-color: transparent;
+    -fx-text-fill: #2f3b2f;
+    -fx-alignment: center-left;
+}
+
 .primary-button {
     -fx-background-color: #355c4a;
     -fx-text-fill: #ffffff;
