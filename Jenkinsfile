@@ -7,6 +7,7 @@ pipeline {
     }
 
     environment {
+        SONARQUBE_SERVER = 'SonarQubeServer'
         IMAGE_NAME = 'robeco945/shopping-cart-localized'
         IMAGE_TAG = "${env.BUILD_NUMBER}"
     }
@@ -22,6 +23,23 @@ pipeline {
             steps {
                 echo 'Running unit tests and checking coverage...'
                 sh 'mvn verify'
+            }
+        }
+
+        stage('SonarQube Analysis') {
+            steps {
+                echo 'Running SonarQube analysis...'
+                withSonarQubeEnv("${SONARQUBE_SERVER}") {
+                    sh 'mvn -B sonar:sonar'
+                }
+            }
+        }
+
+        stage('Quality Gate') {
+            steps {
+                timeout(time: 5, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
             }
         }
 
