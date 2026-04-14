@@ -1,4 +1,6 @@
-FROM eclipse-temurin:21-jdk
-ARG JAR_FILE=target/*.jar
-COPY ${JAR_FILE} app.jar
-ENTRYPOINT ["java", "-jar", "app.jar"]
+FROM maven:3.9.6-eclipse-temurin-21
+WORKDIR /app
+COPY pom.xml .
+COPY src ./src
+# Compile and run via Maven
+ENTRYPOINT ["mvn", "javafx:run"]
